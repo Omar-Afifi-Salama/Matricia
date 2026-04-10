@@ -5,61 +5,79 @@ class Vector:
 
     DISPLAY_PRECISION = 1000
 
+    EPSILON = 1e-9
+
     _name_map = {"x": 0, "y": 1, "z": 2, "w": 3,
                  "a": 0, "b": 1, "c": 2, "d": 3}
     
-    def __init__(self, *args, mutable=False, **kwargs):
+    def __init__(self, *args, mutable=False, convert_to_float=False, **kwargs):
 
-        self.components = [] # initialized empty to handle Vector()
         self.mutable = mutable
+        temp_list = [] # initialized empty early in case of no args or kwargs to handle Vector()
         
         if args:
             if len(args) == 1:
                 arg = args[0]
                 # handles Vector([1, 2, 3]) or Vector(generator)
                 if isinstance(arg, (list, tuple)) or hasattr(arg, "__iter__"):
-                    self.components = list(arg) if self.mutable else tuple(arg)
+                    temp_list = [float(x) for x in arg] if convert_to_float else list(arg)
                 else:
                     # handles Vector(5)
-                    self.components = list(arg) if self.mutable else tuple(arg)
+                    temp_list = [float(arg)] if convert_to_float else [arg]
             else:
                 # handles Vector(1, 2, 3)
-                self.components = list(args)
+                temp_list = [float(x) for x in args] if convert_to_float else list(args)
 
         if kwargs: # handles Vector(x=1, y=2, z=3)
             for key, value in kwargs.items():
                 if key in Vector._name_map:
                     idx = Vector._name_map[key]
-                    while len(self.components) <= idx: # handles Vector(z=2) by creating self.components = [0,0,2]
-                        self.components.append(0)
-                    self.components[idx] = value
+                    while len(temp_list) <= idx: # handles Vector(z=2) by creating temp_list = [0,0,2]
+                        temp_list.append(0)
+                    temp_list[idx] = float(value) if convert_to_float else value
 
-            if not self.mutable:
-                self.components = tuple(self.components)
+        self.components = temp_list if self.mutable else tuple(temp_list)
+        
     
-    def _validate_vector(self, other, op_name):
+    def _validate_vector(self, other):
         if not isinstance(other, Vector):
             return False
         
         if len(self.components) != len(other.components):
             raise ValueError(
-                f"Cannot perform {op_name} on vectors of different lengths: {len(self.components)} and {len(other.components)}"
+                f"Cannot perform operation on vectors of of different lengths: {len(self.components)} and {len(other.components)}"
             )
         return True
     
     def _get_fractions(self):
-        # return [Fraction(x).limit_denominator() for x in self.components]
         return [(f.numerator) if (f := Fraction(x).limit_denominator(Vector.DISPLAY_PRECISION)).denominator == 1 else (f) for x in self.components]
 
     # handles accessing vector components using index. vector_instance[0]
     def __getitem__(self, idx):
-        # if the index is [0:2] (included, excluded) it return a sub vector of those sub components
+        # if the index is [0:2] (included, excluded) it returns a sub vector of those sub components
         if isinstance(idx, slice):
             return Vector(self.components[idx])
         
         # returns the value at that index in the vectors components
         return self.components[idx]
     
+    def __setitem__(self, index, value):
+        if not self.mutable:
+            raise TypeError("This vector is immutable.")
+        self.components[index] = value
+
+    def __setattr__(self, name, value):
+        if not self.mutable:
+            raise AttributeError("This vector is immutable.")
+        
+        if name in Vector._name_map:
+            
+            idx = self._name_map[name]
+            self.components[idx] = value
+        else:
+            # treats the object like a generic python object
+            super().__setattr__(name, value)
+
     # handles dynamic access like v.x and v.y and v.z
     def __getattr__(self, name):
         if name in Vector._name_map:
@@ -67,7 +85,7 @@ class Vector:
             try:
                 return self.components[idx]
             except IndexError:
-                pass
+                raise IndexError(f"The Vector doesn't have a value at the component '{name}'.")
         raise AttributeError(f"Vector object has no '{name}' attribute.")
     
     # handles trying to print(vector_instance)
