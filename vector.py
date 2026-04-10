@@ -10,13 +10,21 @@ class Vector:
     
     def __init__(self, *args, mutable=False, **kwargs):
 
-        self.components = []
+        self.components = [] # initialized empty to handle Vector()
+        self.mutable = mutable
         
-        if args: # handles Vector([1, 2, 3]) and Vector(1, 2, 3)
-            if len(args) == 1 and isinstance(args[0], list|float):
-                self.components = list(args[0]) if mutable else tuple(args[0])
+        if args:
+            if len(args) == 1:
+                arg = args[0]
+                # handles Vector([1, 2, 3]) or Vector(generator)
+                if isinstance(arg, (list, tuple)) or hasattr(arg, "__iter__"):
+                    self.components = list(arg) if self.mutable else tuple(arg)
+                else:
+                    # handles Vector(5)
+                    self.components = list(arg) if self.mutable else tuple(arg)
             else:
-                self.components = list(args) if mutable else tuple(args)
+                # handles Vector(1, 2, 3)
+                self.components = list(args)
 
         if kwargs: # handles Vector(x=1, y=2, z=3)
             for key, value in kwargs.items():
@@ -25,9 +33,9 @@ class Vector:
                     while len(self.components) <= idx: # handles Vector(z=2) by creating self.components = [0,0,2]
                         self.components.append(0)
                     self.components[idx] = value
-        
-        # self.components = tuple(self.components)
-        # TODO make the components of a vector immutable
+
+            if not self.mutable:
+                self.components = tuple(self.components)
     
     def _validate_vector(self, other, op_name):
         if not isinstance(other, Vector):
