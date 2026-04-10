@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.vscode/
+legacy_code/
+test_1.py
+test_2.py
+test_3.py
+Roadmap.md
