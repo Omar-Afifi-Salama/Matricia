@@ -38,7 +38,6 @@ class Vector:
 
         self.components = temp_list if self.mutable else tuple(temp_list)
     
-    # TODO merge them
     def _validate_vector(self, other):
         if not isinstance(other, Vector):
             return False
@@ -261,7 +260,7 @@ class Vector:
         return math.sqrt(sum(x**2 for x in self.components))
     
     def cross(self, other):
-        if len(self.components) != 3 or len(other.components) != 3:
+        if len(self.components) != 3 or isinstance(other, Vector) or len(other.components) != 3:
             raise ValueError("Cross product is only defined for 3D vectors")
         
         new_x = self.y * other.z - self.z * other.y
@@ -410,7 +409,38 @@ class Vector:
                     max_angle = angle
 
         return math.degrees(max_angle) if in_degrees else max_angle
-
+    
+    @staticmethod
+    def cross_product(v1, v2):
+        try:
+            return v1.cross(v2)
+        except AttributeError:
+            raise TypeError("Both arguments must be Vector instances.")
+    
+    @staticmethod
+    def parallelogram_area(v1, v2):
+        return Vector.cross_product(v1, v2).magnitude()
+    
+    @staticmethod
+    def triangle_area(v1, v2):
+        return 0.5 * Vector.parallelogram_area(v1, v2)
+    
+    @staticmethod
+    def scalar_triple_product(v1, v2, v3):
+        try:
+            return v1 * v2.cross(v3)
+        except (AttributeError, TypeError):
+            raise TypeError("All arguments must be Vector instances and 3D.")
+    
+    @staticmethod
+    def volume_of_parallelepiped(v1, v2, v3):
+        return abs(Vector.scalar_triple_product(v1, v2, v3))
+    
+    @staticmethod
+    def are_coplanar(v1, v2, v3, tol=EPSILON):
+        triple_prod = Vector.scalar_triple_product(v1, v2, v3)
+        return math.isclose(triple_prod, 0.0, abs_tol=tol)
+    
     # method aliases
     mag = magnitude
     get_unit_vector = normalize

@@ -125,3 +125,4 @@ class Point:
 # def midpoint(p1, p2):
 #     return Point([(a + b) / 2 for a, b in zip(p1.components, p2.components)])
 # TODO need to rethink how to deal with standalone functions that are not methods
+# TODO create the are_collinear() method
