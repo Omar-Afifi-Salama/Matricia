@@ -362,13 +362,61 @@ class Vector:
         dot_product = v1 * v2
 
         return math.isclose(dot_product, 0.0, abs_tol=tol)
+
+    @staticmethod
+    def mean(*vectors):
         
-    # TODO mean vector between vectors - angular spread - linear dependence
+        if not vectors:
+            return None
+        
+        if not Vector.same_dimensions(vectors):
+            raise ValueError(f"Cannot calculate the mean vector. Vectors are not all of the same dimensions.")
+        
+        dimensions = len(vectors[0])
+        total_components = [0.0] * dimensions
+
+        for v in vectors:
+            for i in range(dimensions):
+                total_components[i] += v[i]
+
+        mean_components = [x / len(vectors) for x in total_components]
+
+        return Vector(mean_components, mutable=vectors[0].mutable)
+    
+    @staticmethod
+    def angular_spread(*vectors, in_degrees=False):
+        if len(vectors) < 2:
+            return 0.0
+        
+        mean_vector = Vector.mean(vectors)
+        sum_of_angles = sum(Vector.angle_between(v, mean_vector, in_degrees=in_degrees) for v in vectors)
+
+        return sum_of_angles / len(vectors)
+    
+    @staticmethod
+    def max_angular_deviation(*vectors, in_degrees=False):
+        if len(vectors) < 2:
+            return 0.0
+        
+        if not Vector.same_dimensions(vectors):
+            raise ValueError(f"Cannot calculate the mean vector. Vectors are not all of the same dimensions.")
+        
+        max_angle = 0.0
+
+        for i in range(len(vectors)):
+            for j in range(i + 1, len(vectors)):
+                angle = Vector.angle_between(vectors[i], vectors[j])
+                if angle > max_angle:
+                    max_angle = angle
+
+        return math.degrees(max_angle) if in_degrees else max_angle
 
     # method aliases
     mag = magnitude
     get_unit_vector = normalize
     norm = normalize
     are_orthogonal = are_perpendicular
+    are_linearly_dependent = are_parallel
     is_zero = is_zero_vector
     is_unit = is_unit_vector
+    get_mean_vector = mean
