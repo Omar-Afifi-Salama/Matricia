@@ -1,4 +1,5 @@
 import math
+from __future__ import annotations
 from fractions import Fraction
 
 class Vector:
@@ -11,7 +12,20 @@ class Vector:
                  "a": 0, "b": 1, "c": 2, "d": 3}
     
     def __init__(self, *args, mutable=False, **kwargs):
+        """Initializes a Vector instance.
 
+        Supports multiple input formats:
+            Vector(1, 2, 3)              -> Positional arguments
+            Vector([1, 2, 3])            -> List/Tuple
+            Vector(x=1, y=2)             -> Named coordinates
+            Vector(n for n in range(3))  -> Generators
+
+        Args:
+            *args: Vector components.
+            mutable (bool): If True, components are stored as a list. 
+                            If False, stored as a tuple (default).
+            **kwargs: Named components (x, y, z, w).
+        """
         self.mutable = mutable
         temp_list = [] # initialized empty early in case of no args or kwargs to handle Vector()
         
@@ -19,7 +33,7 @@ class Vector:
             if len(args) == 1:
                 arg = args[0]
                 # handles Vector([1, 2, 3]) or Vector(generator)
-                if isinstance(arg, (list, tuple)) or hasattr(arg, "__iter__"):
+                if isinstance(arg, (list, tuple)) or hasattr(arg, "__iter__") and not isinstance(arg, str):
                     temp_list = [float(x) for x in arg]
                 else:
                     # handles Vector(5)
@@ -38,7 +52,21 @@ class Vector:
 
         self.components = temp_list if self.mutable else tuple(temp_list)
     
-    def _validate_vector(self, other):
+    def _validate_vector(self, other) -> bool:
+        """Strict internal checker using to make sure
+        that vector operations are possible.
+
+        Args:
+            other (Vector): It is the other vector on which
+            we are checking if the operation is valid.
+
+        Raises:
+            ValueError: If both vector aren't of the same dimensions.
+
+        Returns:
+            bool : True if the other is a Vector and of
+            the same dimensions else False
+        """
         if not isinstance(other, Vector):
             return False
         
@@ -50,7 +78,26 @@ class Vector:
         return True
     
     @staticmethod
-    def same_dimensions(*vectors):
+    def same_dimensions(*vectors:Vector) -> bool:
+        """Dimensions checker for multiple vectors.
+        Should be used before doing any vector operation.
+
+        Supports:
+            same_dimensions(v1, v2, v3, ...)   -> Positional Arguments
+            same_dimensions([v1, v2, v3, ...]) -> List/Tuple
+
+        Args:
+            *vectors(Vector): One or more Vector instances to compare.
+
+        Raises:
+            TypeError: If any of the arguments are not Vector instances.
+        
+        Returns:
+            bool: True if all vector arguments are of the same dimensions,
+            or if less than two vector argument are provided, else False.
+        """
+        if len(vectors) == 1 and isinstance(vectors[0], (list, tuple)):
+            vectors = vectors[0]
 
         if len(vectors) < 2:
             return True # a vector to itself is of the same dimensions
@@ -65,6 +112,7 @@ class Vector:
         return True
 
     def _get_fractions(self):
+        """Internal method that returns the vector's components in pretty faction forms."""
         return [(f.numerator) if (f := Fraction(x).limit_denominator(Vector.DISPLAY_PRECISION)).denominator == 1 else (f) for x in self.components]
 
     # handles accessing vector components using index. vector_instance[0]
@@ -256,10 +304,25 @@ class Vector:
         return math.isclose(self.magnitude(), 1.0, rel_tol=self.EPSILON)
 
     # Vector Functions
-    def magnitude(self):
+    def magnitude(self) -> float:
+        """Returns the magnitude of the vector.
+        Rule: sqrt(sum(each component squared))
+        """
         return math.sqrt(sum(x**2 for x in self.components))
     
-    def cross(self, other):
+    def cross(self, other:Vector) -> Vector:
+        """Calculates the cross product between two vectors.
+
+        Args:
+            other (Vector): The vector that gets crossed.
+            Ex: a.cross(b) = a x b
+
+        Raises:
+            ValueError: If not both vectors are exactly 3D.
+
+        Returns:
+            Vector: a new vector that is perpendicular to both.
+        """
         if len(self.components) != 3 or isinstance(other, Vector) or len(other.components) != 3:
             raise ValueError("Cross product is only defined for 3D vectors")
         
@@ -269,11 +332,35 @@ class Vector:
         
         return Vector([new_x, new_y, new_z], mutable=self.mutable)
     
-    def normalize(self):
+    def normalize(self) -> Vector:
+        """Returns a unit vector pointing in the same direction as this vector.
+
+        Raises:
+            ValueError: If the vector is a zero vector, as its direction 
+                        is undefined and normalization would involve division by zero.
+
+        Returns:
+            Vector: A new Vector instance with a magnitude of exactly 1.0.
+        """
+        if self.is_zero_vector():
+            raise ValueError("Cannot normalize a zero vector. Direction is undefined.")
+
         magnitude_value = self.magnitude()
         return Vector([x / magnitude_value for x in self.components], mutable=self.mutable)
 
-    def scalar_projection_onto(self, other):
+    def scalar_projection_onto(self, other:Vector) -> float:
+        """Calculates the scalar factor that results from
+        projecting the first vector on to the second.
+
+        Args:
+            other (Vector): The second vector on which projection happens.
+
+        Raises:
+            ValueError: If the second vector is the zero vector.
+
+        Returns:
+            float: The scalar factor.
+        """
         if self._validate_vector(other):
             magnitude_other_squared = other * other # i.e. other dotted with itself
 
@@ -284,12 +371,24 @@ class Vector:
 
             return dot_product / magnitude_other_squared
 
-    def project_onto(self, other):            
-            scalar_factor = self.scalar_projection_onto(other)
-            return scalar_factor * other
+    def project_onto(self, other:Vector) -> Vector:
+        """Calculates the Vector that results from
+        projecting the first vector on to the second.
+
+        Args:
+            other (Vector): The second vector on which projection happens.
+
+        Raises:
+            ValueError: If the second vector is the zero vector.
+
+        Returns:
+            Vector: The Vector that results from projection.
+        """      
+        scalar_factor = self.scalar_projection_onto(other)
+        return scalar_factor * other
     
     @staticmethod
-    def are_parallel(v1, v2, allow_antiparallel=True, tol=EPSILON):
+    def are_parallel(v1:Vector, v2:Vector, allow_antiparallel:bool=True, tol:float=EPSILON) -> bool:
         
         if not Vector.same_dimensions(v1, v2):
             raise ValueError(f"Dimension mismatch: {len(v1)} and {len(v2)}")
@@ -308,7 +407,7 @@ class Vector:
             return math.isclose(dot_product, 1.0, abs_tol=tol)
 
     @staticmethod
-    def are_antiparallel(v1, v2, tol=EPSILON):
+    def are_antiparallel(v1:Vector, v2:Vector, tol:float=EPSILON) -> bool:
         if not Vector.same_dimensions(v1, v2):
             raise ValueError(f"Dimension mismatch: {len(v1)} and {len(v2)}")
         
@@ -323,7 +422,7 @@ class Vector:
         return math.isclose(dot_product, -1.0, abs_tol=tol)
 
     @staticmethod
-    def are_all_parallel(*vectors, allow_antiparallel=True, tol=EPSILON):
+    def are_all_parallel(*vectors:Vector, allow_antiparallel:bool=True, tol:float=EPSILON) -> bool:
         if len(vectors) < 2:
             return True
         
@@ -337,7 +436,7 @@ class Vector:
         return True
     
     @staticmethod
-    def angle_between(v1, v2, in_degrees=False):
+    def angle_between(v1:Vector, v2:Vector, in_degrees:bool=False) -> float:
         if not Vector.same_dimensions(v1, v2):
             raise ValueError(f"Dimension mismatch: {len(v1)} and {len(v2)}")
         
@@ -354,7 +453,7 @@ class Vector:
         return math.degrees(angle) if in_degrees else angle
     
     @staticmethod
-    def are_perpendicular(v1, v2, tol=EPSILON):
+    def are_perpendicular(v1:Vector, v2:Vector, tol:float=EPSILON) -> bool:
         if not Vector.same_dimensions(v1, v2):
             raise ValueError(f"Dimension mismatch: {len(v1)} and {len(v2)}")
         
@@ -363,7 +462,7 @@ class Vector:
         return math.isclose(dot_product, 0.0, abs_tol=tol)
 
     @staticmethod
-    def mean(*vectors):
+    def mean(*vectors:Vector) -> Vector:
         
         if not vectors:
             return None
@@ -383,7 +482,7 @@ class Vector:
         return Vector(mean_components, mutable=vectors[0].mutable)
     
     @staticmethod
-    def angular_spread(*vectors, in_degrees=False):
+    def angular_spread(*vectors:Vector, in_degrees:bool=False) -> float:
         if len(vectors) < 2:
             return 0.0
         
@@ -393,7 +492,7 @@ class Vector:
         return sum_of_angles / len(vectors)
     
     @staticmethod
-    def max_angular_deviation(*vectors, in_degrees=False):
+    def max_angular_deviation(*vectors:Vector, in_degrees:bool=False) -> float:
         if len(vectors) < 2:
             return 0.0
         
@@ -411,33 +510,33 @@ class Vector:
         return math.degrees(max_angle) if in_degrees else max_angle
     
     @staticmethod
-    def cross_product(v1, v2):
+    def cross_product(v1:Vector, v2:Vector) -> Vector:
         try:
             return v1.cross(v2)
         except AttributeError:
             raise TypeError("Both arguments must be Vector instances.")
     
     @staticmethod
-    def parallelogram_area(v1, v2):
+    def parallelogram_area(v1:Vector, v2:Vector) -> float:
         return Vector.cross_product(v1, v2).magnitude()
     
     @staticmethod
-    def triangle_area(v1, v2):
+    def triangle_area(v1:Vector, v2:Vector) -> float:
         return 0.5 * Vector.parallelogram_area(v1, v2)
     
     @staticmethod
-    def scalar_triple_product(v1, v2, v3):
+    def scalar_triple_product(v1:Vector, v2:Vector, v3:Vector) -> float:
         try:
             return v1 * v2.cross(v3)
         except (AttributeError, TypeError):
             raise TypeError("All arguments must be Vector instances and 3D.")
     
     @staticmethod
-    def volume_of_parallelepiped(v1, v2, v3):
+    def volume_of_parallelepiped(v1:Vector, v2:Vector, v3:Vector) -> float:
         return abs(Vector.scalar_triple_product(v1, v2, v3))
     
     @staticmethod
-    def are_coplanar(v1, v2, v3, tol=EPSILON):
+    def are_coplanar(v1:Vector, v2:Vector, v3:Vector, tol:float=EPSILON) -> bool:
         triple_prod = Vector.scalar_triple_product(v1, v2, v3)
         return math.isclose(triple_prod, 0.0, abs_tol=tol)
     
@@ -450,3 +549,5 @@ class Vector:
     is_zero = is_zero_vector
     is_unit = is_unit_vector
     get_mean_vector = mean
+
+    # TODO linear interpolation / extrapolation
