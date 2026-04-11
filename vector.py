@@ -183,11 +183,11 @@ class Vector:
     # Binary Operators
     def __add__(self, other):
         if self._validate_vector(other):
-            return Vector([a + b for a, b in zip(self.components, other.components)], mutable=self.mutable)
+            return Vector([a + b for a, b in zip(self.components, other.components)], mutable=(self.mutable and other.mutable))
         
         # < 1, 2, 3 > + 5 = < 6, 7, 8 >
         if isinstance(other, (int, float)):
-            return Vector([x + other for x in self.components], mutable=self.mutable)
+            return Vector([x + other for x in self.components], mutable=(self.mutable and other.mutable))
         
         return NotImplemented
     
@@ -210,11 +210,11 @@ class Vector:
 
     def __sub__(self, other):
         if self._validate_vector(other):
-            return Vector([a - b for a, b in zip(self.components, other.components)], mutable=self.mutable)
+            return Vector([a - b for a, b in zip(self.components, other.components)], mutable=(self.mutable and other.mutable))
         
         # < 1, 2, 3 > - 5 = < -4, -3, -2 >
         if isinstance(other, (int, float)):
-            return Vector([x - other for x in self.components], mutable=self.mutable)
+            return Vector([x - other for x in self.components], mutable=(self.mutable and other.mutable))
         
         return NotImplemented
     
@@ -330,7 +330,7 @@ class Vector:
         new_y = self.z * other.x - self.x * other.z
         new_z = self.x * other.y - self.y * other.x
         
-        return Vector([new_x, new_y, new_z], mutable=self.mutable)
+        return Vector([new_x, new_y, new_z], mutable=(self.mutable and other.mutable))
     
     def normalize(self) -> Vector:
         """Returns a unit vector pointing in the same direction as this vector.
@@ -479,7 +479,7 @@ class Vector:
 
         mean_components = [x / len(vectors) for x in total_components]
 
-        return Vector(mean_components, mutable=vectors[0].mutable)
+        return Vector(mean_components, mutable=all(v.mutable for v in vectors))
     
     @staticmethod
     def angular_spread(*vectors:Vector, in_degrees:bool=False) -> float:
@@ -552,3 +552,4 @@ class Vector:
 
     # TODO linear interpolation / extrapolation
     # TODO Docstring for the methods
+    # TODO Division by a scalar __truediv__ and __floordiv__ and __itruediv__ and __ifloordiv__
