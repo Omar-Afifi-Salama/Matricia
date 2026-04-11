@@ -551,3 +551,4 @@ class Vector:
     get_mean_vector = mean
 
     # TODO linear interpolation / extrapolation
+    # TODO Docstring for the methods
