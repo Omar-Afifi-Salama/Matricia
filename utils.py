@@ -33,3 +33,27 @@ def angle_between(obj_1, obj_2, in_degrees = False):
         angle = math.acos(cos_angle)
 
         return math.degrees(angle) if in_degrees else angle
+    
+import warnings
+import functools
+
+# 1. Build the tool once
+def deprecated(reason):
+    """A decorator to mark functions as deprecated."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            warnings.warn(
+                f"Call to deprecated function {func.__name__}. {reason}",
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+# 2. Slap it on any function you want to keep but retire
+@deprecated("Use the new Gauss-Jordan elimination method instead.")
+def my_old_recursive_determinant(matrix):
+    # Your recursive logic stays completely clean and untouched down here!
+    pass

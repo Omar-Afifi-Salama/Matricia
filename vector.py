@@ -50,7 +50,7 @@ class Vector:
                         temp_list.append(0)
                     temp_list[idx] = float(value)
 
-        self.components = temp_list if self.mutable else tuple(temp_list)
+        self.components = list(temp_list) if self.mutable else tuple(temp_list)
     
     def _validate_vector(self, other) -> bool:
         """Strict internal checker using to make sure
@@ -327,7 +327,7 @@ class Vector:
         return Vector([-x for x in self.components], mutable=self.mutable)
 
     def __abs__(self):
-        return self.magnitude()
+        return Vector([abs(x) for x in self.components])
 
     # Comparison Operators
     def __eq__(self, other):
@@ -347,10 +347,12 @@ class Vector:
 
     # returns False if all components of a vector are zero
     def __bool__(self):
+        # TODO add the ability to choose between strict zero and lenient zero
         return any(abs(x) > self.EPSILON for x in self.components)
     
-    def is_zero_vector(self):
-        return not bool(self)
+    def is_zero_vector(self, tol=EPSILON):
+        # return not bool(self)
+        return all(math.isclose(x, 0.0, abs_tol=tol) for x in self.components)
 
     def is_unit_vector(self):
         return math.isclose(self.magnitude(), 1.0, rel_tol=self.EPSILON)
@@ -621,4 +623,3 @@ class Vector:
     get_mean_vector = mean
 
     # TODO Docstring for the methods
-    # TODO Division by a scalar __truediv__ and __floordiv__ and __itruediv__ and __ifloordiv__
