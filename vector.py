@@ -1,5 +1,5 @@
-import math
 from __future__ import annotations
+import math
 from fractions import Fraction
 
 class Vector:
@@ -135,12 +135,21 @@ class Vector:
         self.components[index] = float(value)
 
     def __setattr__(self, name, value):
-        if not self.mutable:
-            raise AttributeError("This vector is immutable.")
+
+        if name in ('mutable', 'components'):
+            super().__setattr__(name, value)
+            return
+
+        if not getattr(self, 'mutable', False):
+            raise AttributeError("This vector is immutable. Use mutable=True to modify.")
         
         if name in Vector._name_map:
             idx = self._name_map[name]
-            self.components[idx] = value
+
+            while len(self.components) <= idx:
+                self.components.append(0.0)
+            
+            self.components[idx] = float(value)
         else:
             # treats the object like a generic python object
             super().__setattr__(name, value)
@@ -266,6 +275,49 @@ class Vector:
             raise TypeError("Cannot use *= for dot products because the result is a scalar.")
         
         return NotImplemented
+    
+    def __truediv__(self, other):
+        """Scalar Division: Vector / 2.0"""
+        if isinstance(other, (int, float)):
+            if other == 0:
+                raise ZeroDivisionError("Vector division by zero.")
+            return Vector([x / other for x in self.components], mutable=self.mutable)
+        return NotImplemented
+
+    def __itruediv__(self, other):
+        """In-place Scalar Division: v /= 2.0"""
+        if self.mutable:
+            if isinstance(other, (int, float)):
+                if other == 0:
+                    raise ZeroDivisionError("Vector division by zero.")
+                for i in range(len(self)):
+                    self.components[i] /= other
+                return self
+            return NotImplemented
+        else:
+            # Fallback for immutable: creates a new object
+            return self / other
+
+    def __floordiv__(self, other):
+        """Scalar Floor Division: Vector // 2"""
+        if isinstance(other, (int, float)):
+            if other == 0:
+                raise ZeroDivisionError("Vector floor division by zero.")
+            return Vector([x // other for x in self.components], mutable=self.mutable)
+        return NotImplemented
+
+    def __ifloordiv__(self, other):
+        """In-place Floor Division: v //= 2"""
+        if self.mutable:
+            if isinstance(other, (int, float)):
+                if other == 0:
+                    raise ZeroDivisionError("Vector floor division by zero.")
+                for i in range(len(self)):
+                    self.components[i] //= other
+                return self
+            return NotImplemented
+        else:
+            return self // other
 
     # Unary Operators
     def __pos__(self):
@@ -323,7 +375,7 @@ class Vector:
         Returns:
             Vector: a new vector that is perpendicular to both.
         """
-        if len(self.components) != 3 or isinstance(other, Vector) or len(other.components) != 3:
+        if len(self.components) != 3 or not isinstance(other, Vector) or len(other.components) != 3:
             raise ValueError("Cross product is only defined for 3D vectors")
         
         new_x = self.y * other.z - self.z * other.y
@@ -387,6 +439,24 @@ class Vector:
         scalar_factor = self.scalar_projection_onto(other)
         return scalar_factor * other
     
+    def linear_interpolation(self:Vector, other:Vector, t:float|int):
+        """Rule: p_new = p1 + t * (p2 - p1) where 0 <= t <= 1"""
+        if not 0 <= t <= 1:
+            raise ValueError(
+                "Interpolation is only valid for values between 0 and 1. For values greater than 1, try 'linear_extrapolation()'."
+                )
+        
+        return self + t * (other - self)
+    
+    def linear_extrapolation(self:Vector, other:Vector, t:float|int):
+        """Rule: p_new = p1 + t * (p2 - p1) where t > 1 or t < 0"""
+        if not (t > 1 or t < 0):
+            raise ValueError(
+                "Extrapolation is only valid for values less than 0 and greater than 1. For values outside this domain, try 'linear_interpolation()'."
+                )
+        
+        return self + t * (other - self)
+
     @staticmethod
     def are_parallel(v1:Vector, v2:Vector, allow_antiparallel:bool=True, tol:float=EPSILON) -> bool:
         
@@ -550,6 +620,5 @@ class Vector:
     is_unit = is_unit_vector
     get_mean_vector = mean
 
-    # TODO linear interpolation / extrapolation
     # TODO Docstring for the methods
     # TODO Division by a scalar __truediv__ and __floordiv__ and __itruediv__ and __ifloordiv__

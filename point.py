@@ -1,5 +1,5 @@
-import math
 from __future__ import annotations
+import math
 from fractions import Fraction
 
 class Point:
@@ -26,6 +26,7 @@ class Point:
                             If False, stored as a tuple (default).
             **kwargs: Named components (x, y, z, w).
         """
+        # super().__setattr__("mutable", mutable)
         self.mutable = mutable
         temp_list = [] # initialized empty early in case of no args or kwargs to handle Point()
         
@@ -51,6 +52,7 @@ class Point:
                     temp_list[idx] = float(value)
 
         self.components = temp_list if self.mutable else tuple(temp_list)
+        # super().__setattr__("components", temp_list if mutable else tuple(temp_list))
 
     def _validate_point(self, other):
         """Strict internal checker using to make sure
@@ -100,12 +102,20 @@ class Point:
         self.components[index] = float(value)
 
     def __setattr__(self, name, value):
-        if not self.mutable:
-            raise AttributeError("This point is immutable.")
+        if name in ('mutable', 'components'):
+            super().__setattr__(name, value)
+            return
+        
+        if not getattr(self, 'mutable', False):
+            raise AttributeError("This point is immutable. Use mutable=True to modify.")
         
         if name in Point._name_map:
             idx = self._name_map[name]
-            self.components[idx] = value
+
+            while len(self.components) <= idx:
+                self.components.append(0.0)
+            
+            self.components[idx] = float(value)
         else:
             # treats the object like a generic python object
             super().__setattr__(name, value)
@@ -117,7 +127,7 @@ class Point:
             try:
                 return self.components[idx]
             except IndexError:
-                pass
+                raise IndexError(f"The Point doesn't have a value at the component '{name}'.")
         raise AttributeError(f"Point object has no '{name}' attribute.")
     
     def __str__(self):
@@ -405,5 +415,5 @@ class Point:
 
     # method aliases
     lerp = linear_interpolation
-
-# TODO create the are_collinear() method
+    interpolate = linear_interpolation
+    extrapolate = linear_extrapolation
