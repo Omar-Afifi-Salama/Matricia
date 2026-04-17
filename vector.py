@@ -612,6 +612,33 @@ class Vector:
         triple_prod = Vector.scalar_triple_product(v1, v2, v3)
         return math.isclose(triple_prod, 0.0, abs_tol=tol)
     
+    def get_linear_combination(self, *vectors):
+        """
+        Calculates the scalars needed to create this vector from the provided vectors.
+        Returns a Vector of scalars, or None if it's impossible.
+        """
+        from matrix import Matrix 
+        
+        A = Matrix.from_columns(*vectors)
+        
+        if A.has_no_solution(self):
+            return None
+            
+        return A.solve(self)
+    
+    def matricization(self, row_num:int, col_num:int, by_column:bool = False, mutable:bool = False):
+        if len(self.components) != row_num * col_num:
+            raise ValueError(f"Cannot reshape a vector of size {len(self.components)} into a {row_num}x{col_num} matrix.")
+
+        from matrix import Matrix
+
+        if not by_column:
+            # Row-Major Matricization
+            return Matrix([Vector(self.components[i * col_num : (i + 1) * col_num]) for i in range(row_num)], mutable=self.mutable)
+        else:
+            # Column-Major Matricization
+            return Matrix([Vector([self.components[r + c * row_num] for c in range(col_num)]) for r in range(row_num)], mutable=self.mutable)
+    
     # method aliases
     mag = magnitude
     get_unit_vector = normalize
@@ -621,5 +648,7 @@ class Vector:
     is_zero = is_zero_vector
     is_unit = is_unit_vector
     get_mean_vector = mean
+    to_matrix = matricization
+    reshape = matricization
 
     # TODO Docstring for the methods

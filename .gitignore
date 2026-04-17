@@ -1,9 +1,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
-.env
+/.venv
 .vscode/
 legacy_code/
 Roadmap.md
 test_*.py
 *.ipynb
+/tests

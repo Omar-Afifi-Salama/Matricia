@@ -137,6 +137,9 @@ class Matrix:
         return Matrix([list(item) for item in zip(*self.data)])
     
     def _is_conformable_with(self, other):
+        if not isinstance(other, Matrix):
+            return False
+        
         return self.col_num == other.row_num
     
     # TODO fix this
@@ -472,26 +475,28 @@ class Matrix:
         if not isinstance(exponent, int):
             raise TypeError("Matrix exponent must be an integer.")
             
-        if exponent < 0:
-            # Technically M^-n is (M.inverse()) ** n
-            raise NotImplementedError("Negative exponents require matrix inversion logic.")
-
         # Case: M ** 0 -> Identity Matrix
         if exponent == 0:
             return Matrix.generate_identity_matrix(self.row_num, mutable=self.mutable)
+        
+        if exponent < 0:
+            # Technically M^-n is (M.inverse()) ** n
+            base_matrix = self.inverse()
+            exponent = abs(exponent)
+        else:
+            base_matrix = self.copy()
 
         # Case: M ** 1 -> Copy of self
-        res = Matrix(self.data, mutable=self.mutable)
         if exponent == 1:
-            return res
+            return base_matrix
 
         # Case: M ** n -> Repeated Multiplication
-        # Optimization: You could use "Binary Exponentiation" for large powers
-        base = res
+        result = base_matrix
+
         for _ in range(exponent - 1):
-            res = res * base  # Uses your __mul__ implementation
+            result = result * base_matrix
             
-        return res
+        return result
     
     def __ipow__(self, exponent):
         """In-place Matrix Power: M **= n"""
@@ -861,17 +866,43 @@ class Matrix:
         import random
         return Matrix(([random.randint(lower_limit, upper_limit) for _ in range(cols)] for _ in range(rows)), mutable=mutable)
     
-    def augment(self, other) -> 'Matrix':
-        """Glues another matrix to the right side of this one."""
-        if self.row_num != other.row_num:
-            raise ValueError("Matrices must have the same number of rows to augment.")
+    # def augment(self, other) -> 'Matrix':
+    #     """Glues another matrix to the right side of this one."""
+    #     if self.row_num != other.row_num:
+    #         raise ValueError("Matrices must have the same number of rows to augment.")
             
-        # We grab the pure float/Fraction lists, add them together, and wrap in a new Vector
-        new_data = [
-            Vector(self.data[i].components + other.data[i].components)
-            for i in range(self.row_num)
-        ]
+    #     # We grab the pure float/Fraction lists, add them together, and wrap in a new Vector
+    #     new_data = [
+    #         Vector(self.data[i].components + other.data[i].components)
+    #         for i in range(self.row_num)
+    #     ]
         
+    #     return Matrix(new_data, mutable=self.mutable)
+
+    def augment(self, other) -> 'Matrix':
+        """Glues another Matrix or a column Vector to the right side of this matrix."""
+        
+        if isinstance(other, Vector):
+            if self.row_num != len(other.components):
+                raise ValueError(f"Vector length ({len(other.components)}) must match matrix rows ({self.row_num}).")
+            
+            new_data = [
+                Vector(list(self.data[i].components) + [other.components[i]])
+                for i in range(self.row_num)
+            ]
+            
+        elif isinstance(other, Matrix):
+            if self.row_num != other.row_num:
+                raise ValueError("Matrices must have the same number of rows to augment.")
+                
+            new_data = [
+                Vector(list(self.data[i].components) + list(other.data[i].components))
+                for i in range(self.row_num)
+            ]
+            
+        else:
+            raise TypeError("Can only augment with a Matrix or a Vector.")
+            
         return Matrix(new_data, mutable=self.mutable)
     
     def extract_left(self, split_index: int) -> 'Matrix':
@@ -898,24 +929,150 @@ class Matrix:
             raise ValueError("Matrix is singular (determinant is 0).")
             
         # 2. Create the Augmented Matrix [A | I]
-        ident = Matrix.identity(self.row_num)
-        augmented_m = self.augment(ident)
+        identity = Matrix.generate_identity_matrix(self.row_num)
+        augmented_m = self.augment(identity)
         
         # 3. Let your flawless algorithm do the heavy lifting
         rref_m = augmented_m.reduced_row_echelon_form()
         
         # 4. Slice off the right half. The split index is just the width of the original matrix!
         return rref_m.extract_right(self.col_num)
+    
+    def has_no_solution(self, other) -> bool:
+        """Checks if the system Ax = b has no solution."""
+        augmented = self.augment(other)
+        return self.rank != augmented.rank
+
+    def has_unique_solution(self, other) -> bool:
+        """Checks if the system Ax = b has exactly one unique solution."""
+        augmented = self.augment(other)
+        return (self.rank == augmented.rank) and (self.rank == self.col_num)
+
+    def has_infinite_solutions(self, other) -> bool:
+        """Checks if the system Ax = b has infinite solutions (free variables)."""
+        augmented = self.augment(other)
+        return (self.rank == augmented.rank) and (self.rank < self.col_num)
+    
+    def num_free_variables(self, other=None) -> int:
+        """
+        Calculates the number of free variables in the system.
+        If an augmented vector/matrix 'other' is provided, it ensures the system is consistent.
+        """
+        # Safety Check: If they provided b
+        if other is not None:
+            if self.has_no_solution(other):
+                raise ValueError("The system is inconsistent. Free variables are undefined for systems with no solution.")
+                
+        # The Rank-Nullity Formula
+        # Number of Variables (Columns) - Number of Independent Equations (Rank)
+        free_vars = self.col_num - self.rank
         
+        # Return the result (will be 0 for unique solutions, >0 for infinite)
+        return free_vars
+    
+    def solve(self, other:Vector|Matrix) -> Vector:
+        """Rule: A * X = B
+                 A(self) * X(unknown) = B(other)
+
+           If other is a matrix:
+            self * unknown = other
+            self.solve(other) -> solution for unknown
+        
+           If other is a vector:
+            The result is the solution of a system of linear equations.
+        """
+        # safety checks
+        if self.has_no_solution(other):
+            raise ValueError("The system is inconsistent and has no solution.")
+            
+        if self.has_infinite_solutions(other):
+            raise ValueError("The system is linearly dependent and has infinite solutions.")
+        
+        rref_augmented_matrix = self.augment(other).reduced_row_echelon_form()
+
+        solution_matrix = rref_augmented_matrix.extract_right(self.col_num)
+
+        if isinstance(other, Vector):
+            return Vector([row.components[0] for row in solution_matrix.data], mutable=self.mutable)
+        
+        return solution_matrix
+    
+    @classmethod
+    def from_columns(cls, *vectors, mutable=False):
+        """Creates a Matrix where each provided Vector becomes a column."""
+        if not vectors:
+            raise ValueError("Must provide at least one vector.")
+        
+        if len(vectors) == 1 and isinstance(vectors[0], (list, tuple)):
+            vectors = vectors[0]
+            
+        # Ensure all vectors are the same height
+        row_count = len(vectors[0].components)
+
+        if any(len(v.components) != row_count for v in vectors):
+            raise ValueError("All column vectors must have the same dimension.")
+            
+        # Build the rows by grabbing the i-th element from every vector
+        new_data = [
+            Vector([v.components[i] for v in vectors])
+            for i in range(row_count)
+        ]
+        
+        return cls(new_data, mutable=mutable)
+    
+    def vectorize(self, by_column=False):
+        if not by_column:
+            # Row-Major Vectorization
+            return Vector([x for vec in self.data for x in vec.components], mutable=self.mutable)
+        else:
+            # Column-Major Vectorization
+            return Vector([self.data[r][c] for c in range(self.col_num) for r in range(self.row_num)], mutable=self.mutable)
+        
+    @classmethod
+    def from_vector(cls, vector, row_num: int, col_num: int, by_column=False, mutable=False):
+        """
+        Reshapes a 1D Vector back into a 2D Matrix (Matricization).
+        """
+        if len(vector.components) != row_num * col_num:
+            raise ValueError(f"Cannot reshape a vector of size {len(vector.components)} into a {row_num}x{col_num} matrix.")
+
+        if not by_column:
+            # Row-Major Matricization
+            return cls([Vector(vector.components[i * col_num : (i + 1) * col_num]) for i in range(row_num)], mutable=vector.mutable)
+        else:
+            # Column-Major Matricization
+            return cls([Vector([vector.components[r + c * row_num] for c in range(col_num)]) for r in range(row_num)], mutable=vector.mutable)
+
+        
+    def get_linear_combination(self, *matrices:Matrix) -> Matrix:
+        # M_vectorized = self.vectorize()
+        # matrices_vectorized = [m.vectorize() for m in matrices]
+
+        # solution = M_vectorized.get_linear_combination(matrices_vectorized)
+
+        # return solution.matricization(self.row_num, self.col_num)
+        M_vectorized = self.vectorize()
+        matrices_vectorized = [m.vectorize() for m in matrices]
+
+        # solution = M_vectorized.get_linear_combination(matrices_vectorized)
+
+        A = Matrix.from_columns(*matrices_vectorized)
+
+        if A.has_no_solution(M_vectorized):
+            return None
+
+        # return solution.matricization(self.row_num, self.col_num)
+        return A.solve(M_vectorized)
+
     norm = normalize
     identity = generate_identity_matrix
 
     # TODO augment with a matrix -> return augmented matrix
+    # TODO is over determined or is under determined
 
     # TODO Cramer's rule
     # TODO Vector spaces and subspaces if possible and useful
     # TODO Linear Combinations
-    # TODO the augment method in the matrix and the de-augment method
 
 if __name__ == "__main__":
     m = Matrix([1, 2, 3, 4, 5, 6, 7, 8, 9], m=3, n=3)
