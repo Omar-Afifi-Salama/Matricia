@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "matricia"
+version = "1.0.0"
+description = "An n-dimensional linear algebra and geometry engine."
+authors = [{ name="Omar Afifi" }]
+dependencies = [
+    "keyboard",
+]
