@@ -2,11 +2,24 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["matricia*"]
+
 [project]
 name = "matricia"
 version = "1.0.0"
 description = "An n-dimensional linear algebra and geometry engine."
-authors = [{ name="Omar Afifi" }]
+authors = [{ name="Omar Afifi", email="omarafifi2030@gmail.com"}]
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "keyboard",
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/Omar-Afifi-Salama/Matricia"
